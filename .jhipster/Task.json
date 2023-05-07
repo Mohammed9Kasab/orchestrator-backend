@@ -1,0 +1,32 @@
+{
+  "applications": "*",
+  "changelogDate": "20230507122901",
+  "dto": "mapstruct",
+  "embedded": false,
+  "entityTableName": "task",
+  "fields": [
+    {
+      "fieldName": "duration",
+      "fieldType": "Integer",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "fluentMethods": true,
+  "jpaMetamodelFiltering": false,
+  "name": "Task",
+  "pagination": "pagination",
+  "readOnly": false,
+  "relationships": [
+    {
+      "otherEntityName": "job",
+      "relationshipName": "job",
+      "relationshipType": "many-to-one"
+    },
+    {
+      "otherEntityName": "worker",
+      "relationshipName": "worker",
+      "relationshipType": "many-to-one"
+    }
+  ],
+  "service": "serviceClass"
+}
