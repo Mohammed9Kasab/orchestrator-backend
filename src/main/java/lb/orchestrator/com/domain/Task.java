@@ -35,6 +35,9 @@ public class Task implements Serializable {
     @ManyToOne
     private Worker worker;
 
+    @ManyToOne
+    private User user;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -89,6 +92,14 @@ public class Task implements Serializable {
         return this;
     }
 
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 
     @Override
@@ -114,6 +125,7 @@ public class Task implements Serializable {
         return "Task{" +
             "id=" + getId() +
             ", duration=" + getDuration() +
+            ", user=" + getUser() +
             "}";
     }
 }

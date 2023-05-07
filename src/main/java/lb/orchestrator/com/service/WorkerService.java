@@ -109,4 +109,9 @@ public class WorkerService {
         log.debug("Request to delete Worker : {}", id);
         workerRepository.deleteById(id);
     }
+
+    public Page<WorkerDTO> getAllWorkersByUserId(Long userId, Pageable pageable) {
+        log.debug("Request to get all Workers By User Id");
+        return workerRepository.getByUserId(userId,pageable).map(workerMapper::toDto);
+    }
 }

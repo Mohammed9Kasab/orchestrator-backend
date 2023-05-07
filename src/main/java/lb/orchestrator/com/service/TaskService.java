@@ -4,6 +4,7 @@ import java.util.Optional;
 import lb.orchestrator.com.domain.Task;
 import lb.orchestrator.com.repository.TaskRepository;
 import lb.orchestrator.com.service.dto.TaskDTO;
+import lb.orchestrator.com.service.dto.WorkerDTO;
 import lb.orchestrator.com.service.mapper.TaskMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,5 +109,10 @@ public class TaskService {
     public void delete(Long id) {
         log.debug("Request to delete Task : {}", id);
         taskRepository.deleteById(id);
+    }
+
+    public Page<TaskDTO> getAllTasksByUserId(Long userId, Pageable pageable) {
+        log.debug("Request to get all Tasks");
+        return taskRepository.getByUserId(userId,pageable).map(taskMapper::toDto);
     }
 }

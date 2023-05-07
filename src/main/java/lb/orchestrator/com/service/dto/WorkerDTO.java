@@ -15,6 +15,8 @@ public class WorkerDTO implements Serializable {
     @NotNull
     private String name;
 
+    private UserDTO user;
+
     public Long getId() {
         return id;
     }
@@ -29,6 +31,14 @@ public class WorkerDTO implements Serializable {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public UserDTO getUser() {
+        return user;
+    }
+
+    public void setUser(UserDTO user) {
+        this.user = user;
     }
 
     @Override
@@ -58,6 +68,7 @@ public class WorkerDTO implements Serializable {
         return "WorkerDTO{" +
             "id=" + getId() +
             ", name='" + getName() + "'" +
+            ", USER='" + getUser() + "'" +
             "}";
     }
 }

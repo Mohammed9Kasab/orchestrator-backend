@@ -4,6 +4,7 @@ import java.util.Optional;
 import lb.orchestrator.com.domain.Job;
 import lb.orchestrator.com.repository.JobRepository;
 import lb.orchestrator.com.service.dto.JobDTO;
+import lb.orchestrator.com.service.dto.WorkerDTO;
 import lb.orchestrator.com.service.mapper.JobMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -109,4 +110,10 @@ public class JobService {
         log.debug("Request to delete Job : {}", id);
         jobRepository.deleteById(id);
     }
+
+    public Page<JobDTO> getAllJobsByUserId(Long userId, Pageable pageable) {
+        log.debug("Request to get all Jobs By User Id");
+        return jobRepository.getByUserId(userId,pageable).map(jobMapper::toDto);
+    }
+
 }
