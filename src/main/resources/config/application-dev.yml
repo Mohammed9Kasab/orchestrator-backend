@@ -45,7 +45,7 @@ spring:
     contexts: dev, faker
   mail:
     host: localhost
-    port: 25
+    port: 1025
     username:
     password:
   messages:

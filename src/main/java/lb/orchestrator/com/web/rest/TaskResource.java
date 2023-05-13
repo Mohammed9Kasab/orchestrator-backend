@@ -10,6 +10,7 @@ import javax.validation.constraints.NotNull;
 import lb.orchestrator.com.repository.TaskRepository;
 import lb.orchestrator.com.service.TaskService;
 import lb.orchestrator.com.service.dto.TaskDTO;
+import lb.orchestrator.com.service.dto.WorkerDTO;
 import lb.orchestrator.com.web.rest.errors.BadRequestAlertException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -179,5 +180,13 @@ public class TaskResource {
             .noContent()
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
             .build();
+    }
+
+    @GetMapping("/tasks/users/{userId}")
+    public ResponseEntity<List<TaskDTO>> getAllTasksByUserId(@PathVariable Long userId, @org.springdoc.api.annotations.ParameterObject Pageable pageable) {
+        log.debug("REST request to get a page of Tasks By User Id");
+        Page<TaskDTO> page = taskService.getAllTasksByUserId(userId,pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
 }

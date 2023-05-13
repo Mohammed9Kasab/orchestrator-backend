@@ -26,3 +26,10 @@ services:
     # remove the "127.0.0.1:" prefix
     ports:
       - 127.0.0.1:5432:5432
+
+  orchestrator-mailhog:
+    image: mailhog/mailhog:latest
+    restart: always
+    ports:
+      - 1025:1025
+      - 8025:8025

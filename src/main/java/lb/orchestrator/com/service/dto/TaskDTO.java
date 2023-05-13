@@ -19,6 +19,8 @@ public class TaskDTO implements Serializable {
 
     private WorkerDTO worker;
 
+    private UserDTO user;
+
     public Long getId() {
         return id;
     }
@@ -51,6 +53,14 @@ public class TaskDTO implements Serializable {
         this.worker = worker;
     }
 
+    public UserDTO getUser() {
+        return user;
+    }
+
+    public void setUser(UserDTO user) {
+        this.user = user;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -80,6 +90,7 @@ public class TaskDTO implements Serializable {
             ", duration=" + getDuration() +
             ", job=" + getJob() +
             ", worker=" + getWorker() +
+            ", user=" + getUser() +
             "}";
     }
 }

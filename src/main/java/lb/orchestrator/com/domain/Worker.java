@@ -27,6 +27,9 @@ public class Worker implements Serializable {
     @Column(name = "name", nullable = false)
     private String name;
 
+    @ManyToOne
+    private User user;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -55,6 +58,14 @@ public class Worker implements Serializable {
         this.name = name;
     }
 
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 
     @Override
@@ -80,6 +91,7 @@ public class Worker implements Serializable {
         return "Worker{" +
             "id=" + getId() +
             ", name='" + getName() + "'" +
+            ", user='" + getUser() + "'" +
             "}";
     }
 }

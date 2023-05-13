@@ -180,4 +180,12 @@ public class WorkerResource {
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id.toString()))
             .build();
     }
+
+    @GetMapping("/workers/users/{userId}")
+    public ResponseEntity<List<WorkerDTO>> getAllWorkersByUserId(@PathVariable Long userId, @org.springdoc.api.annotations.ParameterObject Pageable pageable) {
+        log.debug("REST request to get a page of Workers By User Id");
+        Page<WorkerDTO> page = workerService.getAllWorkersByUserId(userId,pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return ResponseEntity.ok().headers(headers).body(page.getContent());
+    }
 }
