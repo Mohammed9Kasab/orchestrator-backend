@@ -1,12 +1,13 @@
 package lb.orchestrator.com.repository;
 
-import java.util.List;
-
 import lb.orchestrator.com.domain.Job;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.*;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
 
 /**
  * Spring Data JPA repository for the Job entity.
@@ -18,4 +19,6 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     List<Job> findByUserIsCurrentUser();
 
     Page<Job> getByUserId(Long userId, Pageable pageable);
+
+    List<Job> getByUserId(Long userId);
 }

@@ -1,20 +1,7 @@
 package lb.orchestrator.com.web.rest;
 
-import com.google.ortools.Loader;
-import com.google.ortools.sat.*;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.*;
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
-import lb.orchestrator.com.domain.Task;
-import lb.orchestrator.com.domain.User;
-import lb.orchestrator.com.domain.Worker;
 import lb.orchestrator.com.repository.JobRepository;
-import lb.orchestrator.com.repository.TaskRepository;
-import lb.orchestrator.com.repository.WorkerRepository;
 import lb.orchestrator.com.service.JobService;
-import lb.orchestrator.com.service.UserService;
 import lb.orchestrator.com.service.dto.JobDTO;
 import lb.orchestrator.com.service.dto.ResultDTO;
 import lb.orchestrator.com.web.rest.errors.BadRequestAlertException;
@@ -31,6 +18,14 @@ import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.PaginationUtil;
 import tech.jhipster.web.util.ResponseUtil;
 
+import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
 /**
  * REST controller for managing {@link lb.orchestrator.com.domain.Job}.
  */
@@ -38,33 +33,23 @@ import tech.jhipster.web.util.ResponseUtil;
 @RequestMapping("/api")
 public class JobResource {
 
+    private static final String ENTITY_NAME = "job";
+
     private final Logger log = LoggerFactory.getLogger(JobResource.class);
 
-    private static final String ENTITY_NAME = "job";
+    private final JobService jobService;
+
+    private final JobRepository jobRepository;
 
     @Value("${jhipster.clientApp.name}")
     private String applicationName;
 
-    private final JobService jobService;
-    private final UserService userService;
-
-    private final JobRepository jobRepository;
-
-    private final TaskRepository taskRepository;
-
-    private final WorkerRepository workerRepository;
-
     public JobResource(
         JobService jobService,
-        UserService userService, JobRepository jobRepository,
-        TaskRepository taskRepository,
-        WorkerRepository workerRepository
+        JobRepository jobRepository
     ) {
         this.jobService = jobService;
-        this.userService = userService;
         this.jobRepository = jobRepository;
-        this.taskRepository = taskRepository;
-        this.workerRepository = workerRepository;
     }
 
     /**
@@ -207,305 +192,8 @@ public class JobResource {
     }
 
     @GetMapping("/jobs/job_shop/{userId}")
-    public ResultDTO getOptimizedSchedule(@PathVariable Long userId) {
-            List<Task> tasks = this.taskRepository.getByUserId(userId);
-            ResultDTO resultDTO = new ResultDTO();
-            Loader.loadNativeLibraries();
-            class Task {
-                int worker;
-                int duration;
-
-                Task(int worker, int duration) {
-                    this.worker = worker;
-                    this.duration = duration;
-                }
-
-                public int getWorker() {
-                    return worker;
-                }
-
-                public void setWorker(int worker) {
-                    this.worker = worker;
-                }
-
-                public int getDuration() {
-                    return duration;
-                }
-
-                public void setDuration(int duration) {
-                    this.duration = duration;
-                }
-            }
-            List<List<Task>> allJobs = new ArrayList<>();
-            List<Integer> jobs = new ArrayList<>();
-            //we can get jobs from database. This is just a small note
-            for (lb.orchestrator.com.domain.Task task : tasks) {
-                int x = 0;
-                for (int number : jobs) {
-                    if (task.getJob().getId().intValue() == number) {
-                        x++;
-                    }
-                }
-                if (x == 0) {
-                    jobs.add(task.getJob().getId().intValue());
-                }
-            }
-
-            for (Integer number : jobs) {
-                List<Task> job = new ArrayList<>();
-                for (lb.orchestrator.com.domain.Task task : tasks) {
-                    if (task.getJob().getId().intValue() == number) {
-                        job.add(new Task(task.getWorker().getId().intValue(), task.getDuration()));
-                    }
-                }
-                allJobs.add(job);
-            }
-
-            List<Worker> workerList = this.workerRepository.getByUserId(userId);
-            final List<Integer> allWorkers = new ArrayList<>();
-            for (Worker worker : workerList) {
-                allWorkers.add(worker.getId().intValue());
-            }
-            // Computes horizon dynamically as the sum of all durations.
-            int horizon = 0;
-            for (List<Task> job : allJobs) {
-                for (Task task : job) {
-                    horizon += task.duration;
-                }
-            }
-            // Creates the model
-            CpModel model = new CpModel();
-            class TaskType {
-
-                IntVar start;
-                IntVar end;
-                IntervalVar interval;
-            }
-            Map<List<Integer>, TaskType> allTasks = new HashMap<>();
-            Map<Integer, List<IntervalVar>> workerToIntervals = new HashMap<>();
-            for (int jobID = 0; jobID < allJobs.size(); ++jobID) {
-                List<Task> job = allJobs.get(jobID);
-                for (int taskID = 0; taskID < job.size(); ++taskID) {
-                    Task task = job.get(taskID);
-                    String suffix = "_" + jobID + "_" + taskID;
-                    TaskType taskType = new TaskType();
-                    taskType.start = model.newIntVar(0, horizon, "start" + suffix);
-                    taskType.end = model.newIntVar(0, horizon, "end" + suffix);
-                    taskType.interval =
-                        model.newIntervalVar(taskType.start, LinearExpr.constant(task.duration), taskType.end, "interval" + suffix);
-                    List<Integer> key = Arrays.asList(jobID, taskID);
-                    allTasks.put(key, taskType);
-                    workerToIntervals.computeIfAbsent(task.worker, (Integer k) -> new ArrayList<>());
-                    workerToIntervals.get(task.worker).add(taskType.interval);
-                }
-            }
-            // Create and add disjunctive constraints.
-            for (int worker : allWorkers) {
-                List<IntervalVar> list = workerToIntervals.get(worker);
-                model.addNoOverlap(list);
-            }
-            // Precedences inside a job.
-            for (int jobID = 0; jobID < allJobs.size(); ++jobID) {
-                List<Task> job = allJobs.get(jobID);
-                for (int taskID = 0; taskID < job.size() - 1; ++taskID) {
-                    List<Integer> prevKey = Arrays.asList(jobID, taskID);
-                    List<Integer> nextKey = Arrays.asList(jobID, taskID + 1);
-                    model.addGreaterOrEqual(allTasks.get(nextKey).start, allTasks.get(prevKey).end);
-                }
-            }
-            // Makespan objective.
-            IntVar objVar = model.newIntVar(0, horizon, "makespan");
-            List<IntVar> ends = new ArrayList<>();
-            for (int jobID = 0; jobID < allJobs.size(); ++jobID) {
-                List<Task> job = allJobs.get(jobID);
-                List<Integer> key = Arrays.asList(jobID, job.size() - 1);
-                ends.add(allTasks.get(key).end);
-            }
-            model.addMaxEquality(objVar, ends);
-            model.minimize(objVar);
-            // Creates a solver and solves the model.
-            CpSolver solver = new CpSolver();
-            CpSolverStatus status = solver.solve(model);
-            if (status == CpSolverStatus.OPTIMAL || status == CpSolverStatus.FEASIBLE) {
-                class AssignedTask {
-
-                    int jobID;
-                    int taskID;
-                    int start;
-                    int duration;
-
-                    // Ctor
-                    AssignedTask(int jobID, int taskID, int start, int duration) {
-                        this.jobID = jobID;
-                        this.taskID = taskID;
-                        this.start = start;
-                        this.duration = duration;
-                    }
-                }
-                class SortTasks implements Comparator<AssignedTask> {
-
-                    @Override
-                    public int compare(AssignedTask a, AssignedTask b) {
-                        if (a.start != b.start) {
-                            return a.start - b.start;
-                        } else {
-                            return a.duration - b.duration;
-                        }
-                    }
-                }
-                // Create one list of assigned tasks per worker.
-                Map<Integer, List<AssignedTask>> assignedJobs = new HashMap<>();
-                for (int jobID = 0; jobID < allJobs.size(); ++jobID) {
-                    List<Task> job = allJobs.get(jobID);
-                    for (int taskID = 0; taskID < job.size(); ++taskID) {
-                        Task task = job.get(taskID);
-                        List<Integer> key = Arrays.asList(jobID, taskID);
-                        AssignedTask assignedTask = new AssignedTask(jobID, taskID, (int) solver.value(allTasks.get(key).start), task.duration);
-                        assignedJobs.computeIfAbsent(task.worker, (Integer k) -> new ArrayList<>());
-                        assignedJobs.get(task.worker).add(assignedTask);
-                    }
-                }
-
-                // Create per worker output lines.
-                String output = "";
-                List<List<List<Integer>>> outputMap = new ArrayList<>();
-                for (int worker : allWorkers) {
-                    List<List<Integer>> listArrayList = new ArrayList<>();
-                    // Sort by starting time.
-                    Collections.sort(assignedJobs.get(worker), new SortTasks());
-                    String solLineTasks = "Worker " + worker + ": ";
-                    String solLine = " ";
-                    for (AssignedTask assignedTask : assignedJobs.get(worker)) {
-                        List<Integer> arrayList = new ArrayList<>();
-                        String name = "job_" + assignedTask.jobID + "_task_" + assignedTask.taskID;
-                        // Add spaces to output to align columns.
-                        solLineTasks += String.format("%-15s", name);
-                        String solTmp = "[" + assignedTask.start + "," + (assignedTask.start + assignedTask.duration) + "]";
-                        // Add spaces to output to align columns.
-                        solLine += String.format("%-15s", solTmp);
-                        arrayList.add(assignedTask.jobID);
-                        arrayList.add(assignedTask.taskID);
-                        arrayList.add(assignedTask.start);
-                        arrayList.add(assignedTask.start + assignedTask.duration);
-                        listArrayList.add(arrayList);
-                    }
-                    outputMap.add(listArrayList);
-                    output += solLineTasks + "%n";
-                    output += solLine + "%n";
-                }
-                String solution = "Solution";
-                String statistics = "Statistics";
-                String value = "Optimal Schedule Length: " + String.valueOf(solver.objectiveValue());
-                String conflicts = "conflicts: " + String.valueOf(solver.numConflicts());
-                String branches = "branches: " + String.valueOf(solver.numBranches());
-                String wall_time = "wall time: " + String.valueOf(solver.wallTime());
-
-                // working on First Come, First Served Algorithm
-
-                int startTime = 0;
-                List<List<Integer>> FCFSList = new ArrayList<>();
-                for (List<Task> taskList : allJobs) {
-                    int jobIndex = allJobs.indexOf(taskList);
-
-                    for (Task task : taskList) {
-                        int taskIndex = taskList.indexOf(task);
-                        int endTime = startTime + task.getDuration();
-                        int workerId = task.getWorker();
-                        List<Integer> integerList = new ArrayList<>();
-                        integerList.add(jobIndex);
-                        integerList.add(taskIndex);
-                        integerList.add(startTime);
-                        integerList.add(endTime);
-                        integerList.add(workerId);
-                        FCFSList.add(integerList);
-                        startTime = startTime + task.getDuration();
-                    }
-                }
-                List<List<List<Integer>>> FCFS_Output = new ArrayList<>();
-                for (Integer jobId : jobs) {
-                    List<List<Integer>> jobTaskList = new ArrayList<>();
-
-                    for (List<Integer> task : FCFSList) {
-                        if (task.get(0) == jobId - 1) {
-                            jobTaskList.add(task);
-                        }
-                    }
-                    FCFS_Output.add(jobTaskList);
-                }
-
-                // working on Modified Round Robin Algorithm
-                HashMap<String, Integer> map = new HashMap<String, Integer>();
-                List<List<Integer>> MMRList = new ArrayList<>();
-                List<List<Task>> x = allJobs;
-                int MMR_startTime = 0;
-                int y = 0;
-                int iterationNumber = 0;
-                while (y <= x.size()) {
-                    for (List<Task> taskList : x) {
-                        int jobIndex = allJobs.indexOf(taskList);
-                        String z = "job" + jobIndex;
-                        if (!map.containsKey(z)) {
-                            map.put(z, 0);
-                        }
-                        if (taskList.size() == 0) {
-                            y++;
-                        } else {
-                            Task task = taskList.get(0);
-                            int MMR_endTime = MMR_startTime + task.getDuration();
-                            int MMR_workerId = task.getWorker();
-                            List<Integer> integerList = new ArrayList<>();
-                            integerList.add(jobIndex);
-                            integerList.add(iterationNumber);
-                            integerList.add(0);
-                            integerList.add(0);
-                            integerList.add(MMR_workerId);
-                            integerList.add(task.getDuration());
-                            String t = "worker" + MMR_workerId;
-                            if (!map.containsKey(t)) {
-                                map.put(t, 0);
-                            }
-                            MMRList.add(integerList);
-                            taskList.remove(task);
-                        }
-                    }
-                    iterationNumber++;
-                }
-                for (List<Integer> rtr : MMRList) {
-                    String r1 = "job" + rtr.get(0);
-                    String r2 = "worker" + rtr.get(4);
-                    int start_Time = Math.max(map.get(r1), map.get(r2));
-                    map.put(r1, start_Time + rtr.get(5));
-                    map.put(r2, start_Time + rtr.get(5));
-                    rtr.set(2, start_Time);
-                    rtr.set(3, start_Time + rtr.get(5));
-                }
-
-                List<List<List<Integer>>> MMR_Output = new ArrayList<>();
-                for (Integer jobId : jobs) {
-                    List<List<Integer>> jobTaskList = new ArrayList<>();
-                    for (List<Integer> task : MMRList) {
-                        if (task.get(0) == jobId - 1) {
-                            jobTaskList.add(task);
-                        }
-                    }
-                    MMR_Output.add(jobTaskList);
-                }
-
-                resultDTO.setExistSolution(true);
-                resultDTO.setSolution(solution);
-                resultDTO.setValue(value);
-                resultDTO.setMap(output);
-                resultDTO.setStatistics(statistics);
-                resultDTO.setConflicts(conflicts);
-                resultDTO.setBranches(branches);
-                resultDTO.setWallTime(wall_time);
-                resultDTO.setOutputMap(outputMap);
-                resultDTO.setFCFS_Output(FCFS_Output);
-                resultDTO.setMMR_Output(MMR_Output);
-            } else {
-                resultDTO.setExistSolution(false);
-            }
-
-            return resultDTO;
-        }
+    public ResponseEntity<ResultDTO> getOptimizedSchedule(@PathVariable Long userId) {
+        ResultDTO resultDTO = jobService.getOptimizedSchedule(userId);
+        return ResponseEntity.ok().body(resultDTO);
+    }
 }
