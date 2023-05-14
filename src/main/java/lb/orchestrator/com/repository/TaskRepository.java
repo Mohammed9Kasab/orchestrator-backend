@@ -16,5 +16,5 @@ import java.util.List;
 public interface TaskRepository extends JpaRepository<Task, Long> {
     Page<Task> getByUserId(Long userId, Pageable pageable);
 
-    List<Task> getByUserId(Long id);
+    List<Task> findByUserIdOrderByJobIdAscIdAsc(Long userId);
 }

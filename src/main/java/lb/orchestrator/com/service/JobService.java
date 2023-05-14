@@ -135,13 +135,13 @@ public class JobService {
     public ResultDTO getOptimizedSchedule(Long userId) {
         ResultDTO resultDTO = new ResultDTO();
         // All tasks for this user
-        List<Task> tasks = taskRepository.getByUserId(userId);
+        List<Task> tasks = taskRepository.findByUserIdOrderByJobIdAscIdAsc(userId);
 
         // All jobs id for this user
         List<Integer> jobs = jobRepository.getByUserId(userId).stream().map(Job::getId).map(Long::intValue).collect(Collectors.toList());
 
         //All workers id for this user
-        List<Integer> allWorkers = workerRepository.getByUserId(userId).stream().map(Worker::getId).map(Long::intValue).collect(Collectors.toList());
+        List<Integer> allWorkers = workerRepository.getByUserIdOrderById(userId).stream().map(Worker::getId).map(Long::intValue).collect(Collectors.toList());
 
         Loader.loadNativeLibraries();
 
@@ -150,8 +150,8 @@ public class JobService {
         int horizon = computeHorizonDynamically(allJobs);
 
         // working on JSP Algorithm
-        List<List<List<Integer>>> outputMap = getJspAlgorithmResult(allJobs, horizon, allWorkers);
-        if (outputMap != null) {
+        List<List<List<Integer>>> JSP_Output = getJspAlgorithmResult(allJobs, horizon, allWorkers,jobs);
+        if (JSP_Output != null) {
             // working on First Come, First Served Algorithm
             List<List<List<Integer>>> FCFS_Output = getFcfsAlgorithmResult(allJobs, jobs);
 
@@ -159,7 +159,7 @@ public class JobService {
             List<List<List<Integer>>> MMR_Output = getMmrAlgorithmResult(allJobs, jobs);
 
             resultDTO.setExistSolution(true);
-            resultDTO.setOutputMap(outputMap);
+            resultDTO.setJSP_Output(JSP_Output);
             resultDTO.setFCFS_Output(FCFS_Output);
             resultDTO.setMMR_Output(MMR_Output);
         } else {
@@ -169,7 +169,7 @@ public class JobService {
         return resultDTO;
     }
 
-    private List<List<List<Integer>>> getJspAlgorithmResult(List<List<Task>> allJobs, int horizon, List<Integer> allWorkers) {
+    private List<List<List<Integer>>> getJspAlgorithmResult(List<List<Task>> allJobs, int horizon, List<Integer> allWorkers, List<Integer> jobs) {
         // Creates the model
         CpModel model = new CpModel();
 
@@ -211,17 +211,17 @@ public class JobService {
         // Creates a solver and solves the model.
         CpSolver solver = new CpSolver();
         CpSolverStatus status = solver.solve(model);
-        List<List<List<Integer>>> outputMap = new ArrayList<>();
+        List<List<List<Integer>>> JSP_Output = new ArrayList<>();
         if (status == CpSolverStatus.OPTIMAL || status == CpSolverStatus.FEASIBLE) {
 
             // Create one list of assigned tasks per worker.
             Map<Integer, List<AssignedTask>> assignedJobs = createOneListOfAssignedTasksPerWorker(allJobs, solver, allTasks);
 
             // create the outputMap
-            createOutputMap(allWorkers, assignedJobs, outputMap);
+            JSP_Output = createOutputMap(allWorkers, assignedJobs,jobs);
 
         }
-        return outputMap;
+        return JSP_Output;
     }
 
     private List<List<List<Integer>>> getFcfsAlgorithmResult(List<List<Task>> allJobs, List<Integer> jobs) {
@@ -371,7 +371,7 @@ public class JobService {
             for (int taskID = 0; taskID < job.size(); ++taskID) {
                 Task task = job.get(taskID);
                 List<Integer> key = Arrays.asList(jobID, taskID);
-                AssignedTask assignedTask = new AssignedTask(jobID, taskID, (int) solver.value(allTasks.get(key).getStart()), task.getDuration());
+                AssignedTask assignedTask = new AssignedTask(task.getJob().getId().intValue(), taskID, (int) solver.value(allTasks.get(key).getStart()), task.getDuration());
                 assignedJobs.computeIfAbsent(task.getWorker().getId().intValue(), (Integer k) -> new ArrayList<>());
                 assignedJobs.get(task.getWorker().getId().intValue()).add(assignedTask);
             }
@@ -379,34 +379,44 @@ public class JobService {
         return assignedJobs;
     }
 
-    private void createOutputMap(List<Integer> allWorkers, Map<Integer, List<AssignedTask>> assignedJobs, List<List<List<Integer>>> outputMap) {
-        // Create per worker output lines.
-        String output = "";
-
+    private List<List<List<Integer>>> createOutputMap(List<Integer> allWorkers, Map<Integer, List<AssignedTask>> assignedJobs, List<Integer> jobs) {
+        List<List<List<Integer>>> outputMap = new ArrayList<>();
         for (int worker : allWorkers) {
             List<List<Integer>> listArrayList = new ArrayList<>();
-            // Sort by starting time.
             Collections.sort(assignedJobs.get(worker), new SortTasks());
-            String solLineTasks = "Worker " + worker + ": ";
-            String solLine = " ";
             for (AssignedTask assignedTask : assignedJobs.get(worker)) {
                 List<Integer> arrayList = new ArrayList<>();
-                String name = "job_" + assignedTask.getJobID() + "_task_" + assignedTask.getTaskID();
-                // Add spaces to output to align columns.
-                solLineTasks += String.format("%-15s", name);
-                String solTmp = "[" + assignedTask.getStart() + "," + (assignedTask.getStart() + assignedTask.getDuration()) + "]";
-                // Add spaces to output to align columns.
-                solLine += String.format("%-15s", solTmp);
                 arrayList.add(assignedTask.getJobID());
                 arrayList.add(assignedTask.getTaskID());
                 arrayList.add(assignedTask.getStart());
                 arrayList.add(assignedTask.getStart() + assignedTask.getDuration());
+                arrayList.add(worker);
                 listArrayList.add(arrayList);
             }
             outputMap.add(listArrayList);
-            output += solLineTasks + "%n";
-            output += solLine + "%n";
         }
+
+      List<List<Integer>> result1 = new ArrayList<>();
+        for (List<List<Integer>> list : outputMap ){
+            for (List<Integer> task:list){
+                result1.add(task);
+            }
+        }
+        List<List<List<Integer>>> JSP_Output = new ArrayList<>();
+        for (Integer jobId : jobs) {
+            List<List<Integer>> jobTaskList = new ArrayList<>();
+
+            for (List<Integer> task : result1) {
+                if (Objects.equals(task.get(0), jobId)) {
+                    jobTaskList.add(task);
+                }
+            }
+            Collections.sort(jobTaskList, Comparator.comparingInt(innerList -> innerList.get(1)));
+            JSP_Output.add(jobTaskList);
+        }
+
+        return JSP_Output;
+
     }
 
 }
