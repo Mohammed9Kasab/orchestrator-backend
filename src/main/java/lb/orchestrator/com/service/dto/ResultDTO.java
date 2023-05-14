@@ -14,7 +14,7 @@ public class ResultDTO implements Serializable {
     private String conflicts;
     private String branches;
     private String wallTime;
-    private List<List<List<Integer>>> outputMap = new ArrayList<>();
+    private List<List<List<Integer>>> JSP_Output = new ArrayList<>();
     private List<List<List<Integer>>> FCFS_Output = new ArrayList<>();
     private List<List<List<Integer>>> MMR_Output = new ArrayList<>();
 
@@ -82,12 +82,12 @@ public class ResultDTO implements Serializable {
         this.existSolution = existSolution;
     }
 
-    public List<List<List<Integer>>> getOutputMap() {
-        return outputMap;
+    public List<List<List<Integer>>> getJSP_Output() {
+        return JSP_Output;
     }
 
-    public void setOutputMap(List<List<List<Integer>>> outputMap) {
-        this.outputMap = outputMap;
+    public void setJSP_Output(List<List<List<Integer>>> JSP_Output) {
+        this.JSP_Output = JSP_Output;
     }
 
     public List<List<List<Integer>>> getFCFS_Output() {
