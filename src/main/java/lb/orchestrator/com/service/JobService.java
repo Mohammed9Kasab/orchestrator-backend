@@ -152,7 +152,7 @@ public class JobService {
 
     public ResultDTO getScheduleAuto() {
 
-        Map<String, Object> randomData = generateRandomData(9); // Generate 10 random tasks
+        Map<String, Object> randomData = generateRandomData(22); // Generate 10 random tasks
             List<Job> jobList = (List<Job>) randomData.get("jobs");
             List<Worker> workerList = (List<Worker>) randomData.get("allWorkers");
             List<Task> tasks = (List<Task>) randomData.get("tasks");
@@ -244,8 +244,8 @@ public class JobService {
 
     private static Map<String, Object> generateRandomData(int taskCount) {
         List<Task> tasks = new ArrayList<>();
-        List<Job> jobs = generateRandomJobs(5); // Generate 5 random job IDs
-        List<Worker> allWorkers = generateRandomWorkers(8); // Generate 8 random worker IDs
+        List<Job> jobs = generateRandomJobs(6); // Generate 5 random job IDs
+        List<Worker> allWorkers = generateRandomWorkers(4); // Generate 8 random worker IDs
 
         // Shuffle the lists
         Collections.shuffle(jobs);
@@ -255,7 +255,7 @@ public class JobService {
         for (int i = 0; i < taskCount; i++) {
             Task task = new Task();
             task.setId((long) (i));
-            task.setDuration(random.nextInt(10) + 1);
+            task.setDuration(random.nextInt(4));
 
             // Get the job and worker using modulo operation
             int randomJobIndex = i % jobs.size();
@@ -531,11 +531,15 @@ public class JobService {
         AlgorithmOutputDTO jspAlgorithmOutputDTO = new AlgorithmOutputDTO();
         List<List<List<Integer>>> outputMap = new ArrayList<>();
         int jspEndTime = 0 ;
+        int finalJspEndTime = 0;
         for (int worker : allWorkers) {
             List<List<Integer>> listArrayList = new ArrayList<>();
             Collections.sort(assignedJobs.get(worker), new SortTasks());
             for (AssignedTask assignedTask : assignedJobs.get(worker)) {
                 jspEndTime = assignedTask.getStart() + assignedTask.getDuration();
+                if (jspEndTime > finalJspEndTime){
+                    finalJspEndTime = jspEndTime;
+                }
                 List<Integer> arrayList = new ArrayList<>();
                 arrayList.add(assignedTask.getJobID());
                 arrayList.add(assignedTask.getTaskID());
@@ -567,7 +571,7 @@ public class JobService {
         }
 
         jspAlgorithmOutputDTO.setOutput(jspOutput);
-        jspAlgorithmOutputDTO.setEndTime(jspEndTime);
+        jspAlgorithmOutputDTO.setEndTime(finalJspEndTime);
 
         return jspAlgorithmOutputDTO;
 
