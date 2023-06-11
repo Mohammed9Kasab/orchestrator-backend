@@ -7,72 +7,20 @@ import java.util.List;
 public class ResultDTO implements Serializable {
 
     private boolean existSolution;
-    private String solution;
-    private String value;
-    private String map;
-    private String statistics;
-    private String conflicts;
-    private String branches;
-    private String wallTime;
-    private List<List<List<Integer>>> JSP_Output = new ArrayList<>();
-    private List<List<List<Integer>>> FCFS_Output = new ArrayList<>();
-    private List<List<List<Integer>>> MMR_Output = new ArrayList<>();
 
-    public String getSolution() {
-        return solution;
-    }
+    private List<List<List<Integer>>> jspOutput = new ArrayList<>();
 
-    public void setSolution(String solution) {
-        this.solution = solution;
-    }
+    private Integer jspEndTime ;
 
-    public String getValue() {
-        return value;
-    }
+    private List<List<List<Integer>>> fcfsOutput = new ArrayList<>();
 
-    public void setValue(String value) {
-        this.value = value;
-    }
+    private Integer fcfsEndTime ;
 
-    public String getMap() {
-        return map;
-    }
+    private List<List<List<Integer>>> mrrOutput = new ArrayList<>();
 
-    public void setMap(String map) {
-        this.map = map;
-    }
+    private Integer mrrEndTime ;
 
-    public String getStatistics() {
-        return statistics;
-    }
-
-    public void setStatistics(String statistics) {
-        this.statistics = statistics;
-    }
-
-    public String getConflicts() {
-        return conflicts;
-    }
-
-    public void setConflicts(String conflicts) {
-        this.conflicts = conflicts;
-    }
-
-    public String getBranches() {
-        return branches;
-    }
-
-    public void setBranches(String branches) {
-        this.branches = branches;
-    }
-
-    public String getWallTime() {
-        return wallTime;
-    }
-
-    public void setWallTime(String wallTime) {
-        this.wallTime = wallTime;
-    }
+    private List<List<List<Integer>>> inputTuples = new ArrayList<>();
 
     public boolean isExistSolution() {
         return existSolution;
@@ -82,27 +30,59 @@ public class ResultDTO implements Serializable {
         this.existSolution = existSolution;
     }
 
-    public List<List<List<Integer>>> getJSP_Output() {
-        return JSP_Output;
+    public List<List<List<Integer>>> getFcfsOutput() {
+        return fcfsOutput;
     }
 
-    public void setJSP_Output(List<List<List<Integer>>> JSP_Output) {
-        this.JSP_Output = JSP_Output;
+    public void setFcfsOutput(List<List<List<Integer>>> fcfsOutput) {
+        this.fcfsOutput = fcfsOutput;
     }
 
-    public List<List<List<Integer>>> getFCFS_Output() {
-        return FCFS_Output;
+    public List<List<List<Integer>>> getJspOutput() {
+        return jspOutput;
     }
 
-    public void setFCFS_Output(List<List<List<Integer>>> FCFS_Output) {
-        this.FCFS_Output = FCFS_Output;
+    public void setJspOutput(List<List<List<Integer>>> jspOutput) {
+        this.jspOutput = jspOutput;
     }
 
-    public List<List<List<Integer>>> getMMR_Output() {
-        return MMR_Output;
+    public Integer getJspEndTime() {
+        return jspEndTime;
     }
 
-    public void setMMR_Output(List<List<List<Integer>>> MMR_Output) {
-        this.MMR_Output = MMR_Output;
+    public void setJspEndTime(Integer jspEndTime) {
+        this.jspEndTime = jspEndTime;
+    }
+
+    public Integer getFcfsEndTime() {
+        return fcfsEndTime;
+    }
+
+    public void setFcfsEndTime(Integer fcfsEndTime) {
+        this.fcfsEndTime = fcfsEndTime;
+    }
+
+    public List<List<List<Integer>>> getMrrOutput() {
+        return mrrOutput;
+    }
+
+    public void setMrrOutput(List<List<List<Integer>>> mrrOutput) {
+        this.mrrOutput = mrrOutput;
+    }
+
+    public Integer getMrrEndTime() {
+        return mrrEndTime;
+    }
+
+    public void setMrrEndTime(Integer mrrEndTime) {
+        this.mrrEndTime = mrrEndTime;
+    }
+
+    public List<List<List<Integer>>> getInputTuples() {
+        return inputTuples;
+    }
+
+    public void setInputTuples(List<List<List<Integer>>> inputTuples) {
+        this.inputTuples = inputTuples;
     }
 }
