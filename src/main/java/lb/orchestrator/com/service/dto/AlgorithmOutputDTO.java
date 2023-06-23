@@ -12,6 +12,8 @@ public class AlgorithmOutputDTO {
 
     private int endTime;
 
+    private Long implementationTime;
+
     public List<List<List<Integer>>> getOutput() {
         return output;
     }
@@ -26,5 +28,13 @@ public class AlgorithmOutputDTO {
 
     public void setEndTime(int endTime) {
         this.endTime = endTime;
+    }
+
+    public Long getImplementationTime() {
+        return implementationTime;
+    }
+
+    public void setImplementationTime(Long implementationTime) {
+        this.implementationTime = implementationTime;
     }
 }
