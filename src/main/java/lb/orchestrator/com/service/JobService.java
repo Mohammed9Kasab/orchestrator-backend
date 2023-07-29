@@ -2,7 +2,14 @@ package lb.orchestrator.com.service;
 
 import com.google.ortools.Loader;
 import com.google.ortools.sat.*;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.*;
+import java.util.stream.Collectors;
 import lb.orchestrator.com.domain.*;
+import lb.orchestrator.com.helper.AssignedTask;
 import lb.orchestrator.com.helper.SortTasks;
 import lb.orchestrator.com.repository.JobRepository;
 import lb.orchestrator.com.repository.TaskRepository;
@@ -17,13 +24,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Service Implementation for managing {@link Job}.
@@ -42,10 +42,7 @@ public class JobService {
 
     private final WorkerRepository workerRepository;
 
-    public JobService(JobRepository jobRepository,
-                      JobMapper jobMapper,
-                      TaskRepository taskRepository,
-                      WorkerRepository workerRepository) {
+    public JobService(JobRepository jobRepository, JobMapper jobMapper, TaskRepository taskRepository, WorkerRepository workerRepository) {
         this.jobRepository = jobRepository;
         this.jobMapper = jobMapper;
         this.taskRepository = taskRepository;
@@ -205,19 +202,33 @@ public class JobService {
         List<Integer> jobs = jobRepository.getByUserId(userId).stream().map(Job::getId).map(Long::intValue).collect(Collectors.toList());
 
         //All workers id for this user
-        List<Integer> allWorkers = workerRepository.getByUserIdOrderById(userId).stream().map(Worker::getId).map(Long::intValue).collect(Collectors.toList());
+        List<Integer> allWorkers = workerRepository
+            .getByUserIdOrderById(userId)
+            .stream()
+            .map(Worker::getId)
+            .map(Long::intValue)
+            .collect(Collectors.toList());
 
         return makeCalculationForAllOptions(tasks, jobs, allWorkers);
     }
 
     public ResultDTO getScheduleAuto() {
-
         Map<String, Object> randomData = generateRandomData(22); // Generate 10 random tasks
         List<Job> jobList = (List<Job>) randomData.get("jobs");
         List<Worker> workerList = (List<Worker>) randomData.get("allWorkers");
         List<Task> tasks = (List<Task>) randomData.get("tasks");
-        List<Integer> jobs = jobList.stream().map(Job::getId).map(Long::intValue).sorted(Comparator.naturalOrder()).collect(Collectors.toList());
-        List<Integer> allWorkers = workerList.stream().map(Worker::getId).map(Long::intValue).sorted(Comparator.naturalOrder()).collect(Collectors.toList());
+        List<Integer> jobs = jobList
+            .stream()
+            .map(Job::getId)
+            .map(Long::intValue)
+            .sorted(Comparator.naturalOrder())
+            .collect(Collectors.toList());
+        List<Integer> allWorkers = workerList
+            .stream()
+            .map(Worker::getId)
+            .map(Long::intValue)
+            .sorted(Comparator.naturalOrder())
+            .collect(Collectors.toList());
         ResultDTO resultDTO = makeCalculationForAllOptions(tasks, jobs, allWorkers);
         saveScheduleAutoResultToCSV(resultDTO, tasks.size(), allWorkers.size(), jobs.size());
         return resultDTO;
@@ -232,16 +243,27 @@ public class JobService {
                 writer.println("List of lists of tuples;Tasks#;Workers#;Jobs#;Sch.FCFS;FCFS.ImpTime;Sch.MRR;MMR.ImpTime;Sch.JSP;JSP.time");
             }
 
-            writer.println(resultDTO.getInputTuples() + ";" +
-                tasksNumber + ";" +
-                workersNumber + ";" +
-                jobsNumber + ";" +
-                resultDTO.getFcfsEndTime() + ";" +
-                resultDTO.getFcfsImplementationTime() + ";" +
-                resultDTO.getMrrEndTime() + ";" +
-                resultDTO.getMmrImplementationTime() + ";" +
-                resultDTO.getJspEndTime() + ";" +
-                resultDTO.getJspImplementationTime());
+            writer.println(
+                resultDTO.getInputTuples() +
+                ";" +
+                tasksNumber +
+                ";" +
+                workersNumber +
+                ";" +
+                jobsNumber +
+                ";" +
+                resultDTO.getFcfsEndTime() +
+                ";" +
+                resultDTO.getFcfsImplementationTime() +
+                ";" +
+                resultDTO.getMrrEndTime() +
+                ";" +
+                resultDTO.getMmrImplementationTime() +
+                ";" +
+                resultDTO.getJspEndTime() +
+                ";" +
+                resultDTO.getJspImplementationTime()
+            );
 
             writer.flush();
         } catch (IOException e) {
@@ -270,19 +292,18 @@ public class JobService {
         resultDTO.setJspImplementationTime(jspImplementationTime);
 
         // working on First Come, First Served Algorithm
-        AlgorithmOutputDTO fcfsAlgorithmOutput = getFcfsAlgorithmResult(allJobs, jobs);
+        AlgorithmOutputDTO fcfsAlgorithmOutputDTO = getFcfsAlgorithmResult(allJobs, jobs);
 
-        resultDTO.setFcfsOutput(fcfsAlgorithmOutput.getOutput());
-        resultDTO.setFcfsEndTime(fcfsAlgorithmOutput.getEndTime());
-        resultDTO.setFcfsImplementationTime(fcfsAlgorithmOutput.getImplementationTime());
-
+        resultDTO.setFcfsOutput(fcfsAlgorithmOutputDTO.getOutput());
+        resultDTO.setFcfsEndTime(fcfsAlgorithmOutputDTO.getEndTime());
+        resultDTO.setFcfsImplementationTime(fcfsAlgorithmOutputDTO.getImplementationTime());
 
         // working on Modified Round Robin Algorithm
-        AlgorithmOutputDTO mmrAlgorithmOutput = getMmrAlgorithmResult(allJobs, jobs);
+        AlgorithmOutputDTO mmrAlgorithmOutputDTO = getMmrAlgorithmResult(allJobs, jobs);
 
-        resultDTO.setMrrOutput(mmrAlgorithmOutput.getOutput());
-        resultDTO.setMrrEndTime(mmrAlgorithmOutput.getEndTime());
-        resultDTO.setMmrImplementationTime(mmrAlgorithmOutput.getImplementationTime());
+        resultDTO.setMrrOutput(mmrAlgorithmOutputDTO.getOutput());
+        resultDTO.setMrrEndTime(mmrAlgorithmOutputDTO.getEndTime());
+        resultDTO.setMmrImplementationTime(mmrAlgorithmOutputDTO.getImplementationTime());
 
         resultDTO.setExistSolution(true);
         return resultDTO;
@@ -334,7 +355,14 @@ public class JobService {
                 TaskType taskType = new TaskType();
                 taskType.setStart(model.newIntVar(0, horizon, "start" + suffix));
                 taskType.setEnd(model.newIntVar(0, horizon, "end" + suffix));
-                taskType.setInterval(model.newIntervalVar(taskType.getStart(), LinearExpr.constant(task.getDuration()), taskType.getEnd(), "interval" + suffix));
+                taskType.setInterval(
+                    model.newIntervalVar(
+                        taskType.getStart(),
+                        LinearExpr.constant(task.getDuration()),
+                        taskType.getEnd(),
+                        "interval" + suffix
+                    )
+                );
                 List<Integer> key = Arrays.asList(jobID, taskID);
                 allTasks.put(key, taskType);
                 workerToIntervals.computeIfAbsent(task.getWorker().getId().intValue(), (Integer k) -> new ArrayList<>());
@@ -347,7 +375,6 @@ public class JobService {
 
         // Precedences inside a job.
         precedencesInsideJob(allJobs, allTasks, model);
-
 
         // Makespan objective.
         IntVar objVar = model.newIntVar(0, horizon, "makespan");
@@ -363,13 +390,11 @@ public class JobService {
         CpSolver solver = new CpSolver();
         CpSolverStatus status = solver.solve(model);
         if (status == CpSolverStatus.OPTIMAL || status == CpSolverStatus.FEASIBLE) {
-
             // Create one list of assigned tasks per worker.
             Map<Integer, List<AssignedTask>> assignedJobs = createOneListOfAssignedTasksPerWorker(allJobs, solver, allTasks);
 
             // create the outputMap
             jspAlgorithmOutputDTO = createOutputMap(allWorkers, assignedJobs, jobs);
-
         }
 
         return jspAlgorithmOutputDTO;
@@ -403,7 +428,6 @@ public class JobService {
             for (List<Integer> task : FCFSList) {
                 if (Objects.equals(task.get(0), jobId)) {
                     jobTaskList.add(task);
-                    break;
                 }
             }
             fcfsOutput.add(jobTaskList);
@@ -475,7 +499,6 @@ public class JobService {
             for (List<Integer> task : MMRList) {
                 if (Objects.equals(task.get(0), jobId)) {
                     jobTaskList.add(task);
-                    break;
                 }
             }
             mmrOutput.add(jobTaskList);
@@ -537,14 +560,23 @@ public class JobService {
         }
     }
 
-    private Map<Integer, List<AssignedTask>> createOneListOfAssignedTasksPerWorker(List<List<Task>> allJobs, CpSolver solver, Map<List<Integer>, TaskType> allTasks) {
+    private Map<Integer, List<AssignedTask>> createOneListOfAssignedTasksPerWorker(
+        List<List<Task>> allJobs,
+        CpSolver solver,
+        Map<List<Integer>, TaskType> allTasks
+    ) {
         Map<Integer, List<AssignedTask>> assignedJobs = new HashMap<>();
         for (int jobID = 0; jobID < allJobs.size(); ++jobID) {
             List<Task> job = allJobs.get(jobID);
             for (int taskID = 0; taskID < job.size(); ++taskID) {
                 Task task = job.get(taskID);
                 List<Integer> key = Arrays.asList(jobID, taskID);
-                AssignedTask assignedTask = new AssignedTask(task.getJob().getId().intValue(), taskID, (int) solver.value(allTasks.get(key).getStart()), task.getDuration());
+                AssignedTask assignedTask = new AssignedTask(
+                    task.getJob().getId().intValue(),
+                    taskID,
+                    (int) solver.value(allTasks.get(key).getStart()),
+                    task.getDuration()
+                );
                 assignedJobs.computeIfAbsent(task.getWorker().getId().intValue(), (Integer k) -> new ArrayList<>());
                 assignedJobs.get(task.getWorker().getId().intValue()).add(assignedTask);
             }
@@ -552,7 +584,11 @@ public class JobService {
         return assignedJobs;
     }
 
-    private AlgorithmOutputDTO createOutputMap(List<Integer> allWorkers, Map<Integer, List<AssignedTask>> assignedJobs, List<Integer> jobs) {
+    private AlgorithmOutputDTO createOutputMap(
+        List<Integer> allWorkers,
+        Map<Integer, List<AssignedTask>> assignedJobs,
+        List<Integer> jobs
+    ) {
         AlgorithmOutputDTO jspAlgorithmOutputDTO = new AlgorithmOutputDTO();
         List<List<List<Integer>>> outputMap = new ArrayList<>();
         int jspEndTime = 0;
@@ -599,7 +635,5 @@ public class JobService {
         jspAlgorithmOutputDTO.setEndTime(finalJspEndTime);
 
         return jspAlgorithmOutputDTO;
-
     }
-
 }

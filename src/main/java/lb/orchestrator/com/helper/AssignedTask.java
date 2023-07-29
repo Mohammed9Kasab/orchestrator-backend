@@ -1,6 +1,7 @@
-package lb.orchestrator.com.domain;
+package lb.orchestrator.com.helper;
 
 public class AssignedTask {
+
     int jobID;
     int taskID;
     int start;

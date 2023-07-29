@@ -10,23 +10,23 @@ public class ResultDTO implements Serializable {
 
     private List<List<List<Integer>>> jspOutput = new ArrayList<>();
 
-    private Integer jspEndTime ;
+    private Integer jspEndTime;
 
     private Long jspImplementationTime;
 
     private List<List<List<Integer>>> fcfsOutput = new ArrayList<>();
 
-    private Integer fcfsEndTime ;
+    private Integer fcfsEndTime;
 
     private Long fcfsImplementationTime;
 
     private List<List<List<Integer>>> mrrOutput = new ArrayList<>();
 
-    private Integer mrrEndTime ;
+    private Integer mrrEndTime;
 
     private Long mmrImplementationTime;
 
-    private String inputTuples ;
+    private String inputTuples;
 
     public boolean isExistSolution() {
         return existSolution;
