@@ -428,7 +428,6 @@ public class JobService {
             for (List<Integer> task : FCFSList) {
                 if (Objects.equals(task.get(0), jobId)) {
                     jobTaskList.add(task);
-                    break;
                 }
             }
             fcfsOutput.add(jobTaskList);
@@ -500,7 +499,6 @@ public class JobService {
             for (List<Integer> task : MMRList) {
                 if (Objects.equals(task.get(0), jobId)) {
                     jobTaskList.add(task);
-                    break;
                 }
             }
             mmrOutput.add(jobTaskList);

@@ -10,17 +10,23 @@ public class ResultDTO implements Serializable {
 
     private List<List<List<Integer>>> jspOutput = new ArrayList<>();
 
-    private Integer jspEndTime ;
+    private Integer jspEndTime;
+
+    private Long jspImplementationTime;
 
     private List<List<List<Integer>>> fcfsOutput = new ArrayList<>();
 
-    private Integer fcfsEndTime ;
+    private Integer fcfsEndTime;
+
+    private Long fcfsImplementationTime;
 
     private List<List<List<Integer>>> mrrOutput = new ArrayList<>();
 
-    private Integer mrrEndTime ;
+    private Integer mrrEndTime;
 
-    private List<List<List<Integer>>> inputTuples = new ArrayList<>();
+    private Long mmrImplementationTime;
+
+    private String inputTuples;
 
     public boolean isExistSolution() {
         return existSolution;
@@ -78,11 +84,35 @@ public class ResultDTO implements Serializable {
         this.mrrEndTime = mrrEndTime;
     }
 
-    public List<List<List<Integer>>> getInputTuples() {
+    public String getInputTuples() {
         return inputTuples;
     }
 
-    public void setInputTuples(List<List<List<Integer>>> inputTuples) {
+    public void setInputTuples(String inputTuples) {
         this.inputTuples = inputTuples;
+    }
+
+    public Long getJspImplementationTime() {
+        return jspImplementationTime;
+    }
+
+    public void setJspImplementationTime(Long jspImplementationTime) {
+        this.jspImplementationTime = jspImplementationTime;
+    }
+
+    public Long getFcfsImplementationTime() {
+        return fcfsImplementationTime;
+    }
+
+    public void setFcfsImplementationTime(Long fcfsImplementationTime) {
+        this.fcfsImplementationTime = fcfsImplementationTime;
+    }
+
+    public Long getMmrImplementationTime() {
+        return mmrImplementationTime;
+    }
+
+    public void setMmrImplementationTime(Long mmrImplementationTime) {
+        this.mmrImplementationTime = mmrImplementationTime;
     }
 }
