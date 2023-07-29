@@ -2,7 +2,14 @@ package lb.orchestrator.com.service;
 
 import com.google.ortools.Loader;
 import com.google.ortools.sat.*;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.*;
+import java.util.stream.Collectors;
 import lb.orchestrator.com.domain.*;
+import lb.orchestrator.com.helper.AssignedTask;
 import lb.orchestrator.com.helper.SortTasks;
 import lb.orchestrator.com.repository.JobRepository;
 import lb.orchestrator.com.repository.TaskRepository;
@@ -17,13 +24,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Service Implementation for managing {@link Job}.
@@ -42,14 +42,71 @@ public class JobService {
 
     private final WorkerRepository workerRepository;
 
-    public JobService(JobRepository jobRepository,
-                      JobMapper jobMapper,
-                      TaskRepository taskRepository,
-                      WorkerRepository workerRepository) {
+    public JobService(JobRepository jobRepository, JobMapper jobMapper, TaskRepository taskRepository, WorkerRepository workerRepository) {
         this.jobRepository = jobRepository;
         this.jobMapper = jobMapper;
         this.taskRepository = taskRepository;
         this.workerRepository = workerRepository;
+    }
+
+    private static Map<String, Object> generateRandomData(int taskCount) {
+        List<Task> tasks = new ArrayList<>();
+        List<Job> jobs = generateRandomJobs(6);
+        List<Worker> allWorkers = generateRandomWorkers(4);
+
+        // Shuffle the lists
+        Collections.shuffle(jobs);
+        Collections.shuffle(allWorkers);
+
+        Random random = new Random();
+        for (int i = 0; i < taskCount; i++) {
+            Task task = new Task();
+            task.setId((long) (i));
+            task.setDuration(random.nextInt(4) + 1);
+
+            // Get the job and worker using modulo operation
+            int randomJobIndex = i % jobs.size();
+            Job randomJob = jobs.get(randomJobIndex);
+            task.setJob(randomJob);
+
+            int randomWorkerIndex = i % allWorkers.size();
+            Worker randomWorker = allWorkers.get(randomWorkerIndex);
+            task.setWorker(randomWorker);
+
+            tasks.add(task);
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("jobs", jobs);
+        data.put("allWorkers", allWorkers);
+        data.put("tasks", tasks);
+        return data;
+    }
+
+    private static List<Job> generateRandomJobs(int count) {
+        List<Job> jobs = new ArrayList<>();
+
+        for (int i = 0; i < count; i++) {
+            Job job = new Job();
+            job.setId((long) (i));
+            job.setName("job" + i);
+            jobs.add(job);
+        }
+
+        return jobs;
+    }
+
+    private static List<Worker> generateRandomWorkers(int count) {
+        List<Worker> workers = new ArrayList<>();
+
+        for (int i = 0; i < count; i++) {
+            Worker worker = new Worker();
+            worker.setId((long) (i));
+            worker.setName("worker" + i);
+            workers.add(worker);
+        }
+
+        return workers;
     }
 
     /**
@@ -145,25 +202,37 @@ public class JobService {
         List<Integer> jobs = jobRepository.getByUserId(userId).stream().map(Job::getId).map(Long::intValue).collect(Collectors.toList());
 
         //All workers id for this user
-        List<Integer> allWorkers = workerRepository.getByUserIdOrderById(userId).stream().map(Worker::getId).map(Long::intValue).collect(Collectors.toList());
+        List<Integer> allWorkers = workerRepository
+            .getByUserIdOrderById(userId)
+            .stream()
+            .map(Worker::getId)
+            .map(Long::intValue)
+            .collect(Collectors.toList());
 
         return makeCalculationForAllOptions(tasks, jobs, allWorkers);
     }
 
     public ResultDTO getScheduleAuto() {
-
         Map<String, Object> randomData = generateRandomData(22); // Generate 10 random tasks
-            List<Job> jobList = (List<Job>) randomData.get("jobs");
-            List<Worker> workerList = (List<Worker>) randomData.get("allWorkers");
-            List<Task> tasks = (List<Task>) randomData.get("tasks");
-            List<Integer> jobs = jobList.stream().map(Job::getId).map(Long::intValue).sorted(Comparator.naturalOrder()).collect(Collectors.toList());
-            List<Integer> allWorkers = workerList.stream().map(Worker::getId).map(Long::intValue).sorted(Comparator.naturalOrder()).collect(Collectors.toList());
+        List<Job> jobList = (List<Job>) randomData.get("jobs");
+        List<Worker> workerList = (List<Worker>) randomData.get("allWorkers");
+        List<Task> tasks = (List<Task>) randomData.get("tasks");
+        List<Integer> jobs = jobList
+            .stream()
+            .map(Job::getId)
+            .map(Long::intValue)
+            .sorted(Comparator.naturalOrder())
+            .collect(Collectors.toList());
+        List<Integer> allWorkers = workerList
+            .stream()
+            .map(Worker::getId)
+            .map(Long::intValue)
+            .sorted(Comparator.naturalOrder())
+            .collect(Collectors.toList());
         ResultDTO resultDTO = makeCalculationForAllOptions(tasks, jobs, allWorkers);
         saveScheduleAutoResultToCSV(resultDTO, tasks.size(), allWorkers.size(), jobs.size());
         return resultDTO;
     }
-
-
 
     private void saveScheduleAutoResultToCSV(ResultDTO resultDTO, int tasksNumber, int workersNumber, int jobsNumber) {
         File file = new File("result.csv");
@@ -171,16 +240,30 @@ public class JobService {
 
         try (PrintWriter writer = new PrintWriter(new FileWriter(file, true))) {
             if (isNewFile) {
-                writer.println("List of lists of tuples;Tasks#;Workers#;Jobs#;Sch.FCFS;Sch.MRR;Sch.JSP");
+                writer.println("List of lists of tuples;Tasks#;Workers#;Jobs#;Sch.FCFS;FCFS.ImpTime;Sch.MRR;MMR.ImpTime;Sch.JSP;JSP.time");
             }
 
-            writer.println(resultDTO.getInputTuples() + ";" +
-                tasksNumber + ";" +
-                workersNumber + ";" +
-                jobsNumber + ";" +
-                resultDTO.getFcfsEndTime() + ";" +
-                resultDTO.getMrrEndTime() + ";" +
-                resultDTO.getJspEndTime());
+            writer.println(
+                resultDTO.getInputTuples() +
+                ";" +
+                tasksNumber +
+                ";" +
+                workersNumber +
+                ";" +
+                jobsNumber +
+                ";" +
+                resultDTO.getFcfsEndTime() +
+                ";" +
+                resultDTO.getFcfsImplementationTime() +
+                ";" +
+                resultDTO.getMrrEndTime() +
+                ";" +
+                resultDTO.getMmrImplementationTime() +
+                ";" +
+                resultDTO.getJspEndTime() +
+                ";" +
+                resultDTO.getJspImplementationTime()
+            );
 
             writer.flush();
         } catch (IOException e) {
@@ -189,120 +272,73 @@ public class JobService {
         }
     }
 
-
     private ResultDTO makeCalculationForAllOptions(List<Task> tasks, List<Integer> jobs, List<Integer> allWorkers) {
         ResultDTO resultDTO = new ResultDTO();
 
-        Loader.loadNativeLibraries();
-
         List<List<Task>> allJobs = classifyTasksBasedOnJob(jobs, tasks);
-
-        List<List<List<Integer>>> inputTuples = createListOfInputTuples(allJobs);
-
+        String inputTuples = createListOfInputTuples(allJobs).toString();
         resultDTO.setInputTuples(inputTuples);
 
-        int horizon = computeHorizonDynamically(allJobs);
-
         // working on JSP Algorithm
-        AlgorithmOutputDTO jspAlgorithmOutputDTO = getJspAlgorithmResult(allJobs, horizon, allWorkers,jobs);
-        List<List<List<Integer>>> jspOutput = jspAlgorithmOutputDTO.getOutput();
-        int jspEndTime = jspAlgorithmOutputDTO.getEndTime();
+        Long jspImplementationStartTime = System.nanoTime();
+        Loader.loadNativeLibraries();
+        int horizon = computeHorizonDynamically(allJobs);
+        AlgorithmOutputDTO jspAlgorithmOutputDTO = getJspAlgorithmResult(allJobs, horizon, allWorkers, jobs);
+        Long jspImplementationEndTime = System.nanoTime();
+        Long jspImplementationTime = jspImplementationEndTime - jspImplementationStartTime;
+
+        resultDTO.setJspOutput(jspAlgorithmOutputDTO.getOutput());
+        resultDTO.setJspEndTime(jspAlgorithmOutputDTO.getEndTime());
+        resultDTO.setJspImplementationTime(jspImplementationTime);
+
         // working on First Come, First Served Algorithm
-        AlgorithmOutputDTO fcfsAlgorithmOutput = getFcfsAlgorithmResult(allJobs, jobs);
-        List<List<List<Integer>>> fcfsOutput = fcfsAlgorithmOutput.getOutput();
-        int fcfsEndTime = fcfsAlgorithmOutput.getEndTime();
+        AlgorithmOutputDTO fcfsAlgorithmOutputDTO = getFcfsAlgorithmResult(allJobs, jobs);
+
+        resultDTO.setFcfsOutput(fcfsAlgorithmOutputDTO.getOutput());
+        resultDTO.setFcfsEndTime(fcfsAlgorithmOutputDTO.getEndTime());
+        resultDTO.setFcfsImplementationTime(fcfsAlgorithmOutputDTO.getImplementationTime());
 
         // working on Modified Round Robin Algorithm
-        AlgorithmOutputDTO mmrAlgorithmOutput = getMmrAlgorithmResult(allJobs, jobs);
-        List<List<List<Integer>>> mmrOutput = mmrAlgorithmOutput.getOutput();
-        int mmrEndTime = mmrAlgorithmOutput.getEndTime();
+        AlgorithmOutputDTO mmrAlgorithmOutputDTO = getMmrAlgorithmResult(allJobs, jobs);
+
+        resultDTO.setMrrOutput(mmrAlgorithmOutputDTO.getOutput());
+        resultDTO.setMrrEndTime(mmrAlgorithmOutputDTO.getEndTime());
+        resultDTO.setMmrImplementationTime(mmrAlgorithmOutputDTO.getImplementationTime());
 
         resultDTO.setExistSolution(true);
-        resultDTO.setJspOutput(jspOutput);
-        resultDTO.setJspEndTime(jspEndTime);
-        resultDTO.setFcfsOutput(fcfsOutput);
-        resultDTO.setFcfsEndTime(fcfsEndTime);
-        resultDTO.setMrrOutput(mmrOutput);
-        resultDTO.setMrrEndTime(mmrEndTime);
         return resultDTO;
     }
 
-    private List<List<List<Integer>>> createListOfInputTuples(List<List<Task>> allJobs) {
+    private StringBuilder createListOfInputTuples(List<List<Task>> allJobs) {
         List<List<List<Integer>>> result = new ArrayList<>();
-        for (List<Task> tasks : allJobs){
+        StringBuilder res = new StringBuilder();
+        res.append("[");
+        for (List<Task> tasks : allJobs) {
+            res.append("[");
             List<List<Integer>> listOfTuples = new ArrayList<>();
-            for (Task task : tasks ){
+            for (Task task : tasks) {
+                res.append("(");
+                res.append(task.getWorker().getId().intValue());
+                res.append(",");
+                res.append(task.getDuration());
+                res.append(")");
+                if (task != tasks.get(tasks.size() - 1)) {
+                    res.append(",");
+                }
                 List<Integer> tuple = new ArrayList<>();
                 tuple.add(task.getWorker().getId().intValue());
                 tuple.add(task.getDuration());
                 listOfTuples.add(tuple);
             }
+            res.append("]");
+            if (tasks != allJobs.get(allJobs.size() - 1)) {
+                res.append(",");
+            }
             result.add(listOfTuples);
         }
-        return result;
+        res.append("]");
+        return res;
     }
-
-    private static Map<String, Object> generateRandomData(int taskCount) {
-        List<Task> tasks = new ArrayList<>();
-        List<Job> jobs = generateRandomJobs(6); // Generate 5 random job IDs
-        List<Worker> allWorkers = generateRandomWorkers(4); // Generate 8 random worker IDs
-
-        // Shuffle the lists
-        Collections.shuffle(jobs);
-        Collections.shuffle(allWorkers);
-
-        Random random = new Random();
-        for (int i = 0; i < taskCount; i++) {
-            Task task = new Task();
-            task.setId((long) (i));
-            task.setDuration(random.nextInt(4));
-
-            // Get the job and worker using modulo operation
-            int randomJobIndex = i % jobs.size();
-            Job randomJob = jobs.get(randomJobIndex);
-            task.setJob(randomJob);
-
-            int randomWorkerIndex = i % allWorkers.size();
-            Worker randomWorker = allWorkers.get(randomWorkerIndex);
-            task.setWorker(randomWorker);
-
-            tasks.add(task);
-        }
-
-        Map<String, Object> data = new HashMap<>();
-        data.put("jobs", jobs);
-        data.put("allWorkers", allWorkers);
-        data.put("tasks", tasks);
-        return data;
-    }
-
-
-    private static List<Job> generateRandomJobs(int count) {
-        List<Job> jobs = new ArrayList<>();
-
-        for (int i = 0; i < count; i++) {
-            Job job = new Job();
-            job.setId((long) (i));
-            job.setName("job"+i);
-            jobs.add(job);
-        }
-
-        return jobs;
-    }
-
-    private static List<Worker> generateRandomWorkers(int count) {
-        List<Worker> workers = new ArrayList<>();
-
-        for (int i = 0; i < count; i++) {
-            Worker worker = new Worker();
-            worker.setId((long) (i));
-            worker.setName("worker"+i);
-            workers.add(worker);
-        }
-
-        return workers;
-    }
-
 
     private AlgorithmOutputDTO getJspAlgorithmResult(List<List<Task>> allJobs, int horizon, List<Integer> allWorkers, List<Integer> jobs) {
         AlgorithmOutputDTO jspAlgorithmOutputDTO = new AlgorithmOutputDTO();
@@ -319,7 +355,14 @@ public class JobService {
                 TaskType taskType = new TaskType();
                 taskType.setStart(model.newIntVar(0, horizon, "start" + suffix));
                 taskType.setEnd(model.newIntVar(0, horizon, "end" + suffix));
-                taskType.setInterval(model.newIntervalVar(taskType.getStart(), LinearExpr.constant(task.getDuration()), taskType.getEnd(), "interval" + suffix));
+                taskType.setInterval(
+                    model.newIntervalVar(
+                        taskType.getStart(),
+                        LinearExpr.constant(task.getDuration()),
+                        taskType.getEnd(),
+                        "interval" + suffix
+                    )
+                );
                 List<Integer> key = Arrays.asList(jobID, taskID);
                 allTasks.put(key, taskType);
                 workerToIntervals.computeIfAbsent(task.getWorker().getId().intValue(), (Integer k) -> new ArrayList<>());
@@ -332,7 +375,6 @@ public class JobService {
 
         // Precedences inside a job.
         precedencesInsideJob(allJobs, allTasks, model);
-
 
         // Makespan objective.
         IntVar objVar = model.newIntVar(0, horizon, "makespan");
@@ -348,25 +390,23 @@ public class JobService {
         CpSolver solver = new CpSolver();
         CpSolverStatus status = solver.solve(model);
         if (status == CpSolverStatus.OPTIMAL || status == CpSolverStatus.FEASIBLE) {
-
             // Create one list of assigned tasks per worker.
             Map<Integer, List<AssignedTask>> assignedJobs = createOneListOfAssignedTasksPerWorker(allJobs, solver, allTasks);
 
             // create the outputMap
-            jspAlgorithmOutputDTO = createOutputMap(allWorkers, assignedJobs,jobs);
-
+            jspAlgorithmOutputDTO = createOutputMap(allWorkers, assignedJobs, jobs);
         }
 
         return jspAlgorithmOutputDTO;
     }
 
     private AlgorithmOutputDTO getFcfsAlgorithmResult(List<List<Task>> allJobs, List<Integer> jobs) {
+        Long fcfsImplementationStartTime = System.nanoTime();
         AlgorithmOutputDTO fcfsAlgorithmOutputDTO = new AlgorithmOutputDTO();
         int startTime = 0;
         int endTime = 0;
         List<List<Integer>> FCFSList = new ArrayList<>();
         for (List<Task> taskList : allJobs) {
-
             for (Task task : taskList) {
                 int taskIndex = taskList.indexOf(task);
                 endTime = startTime + task.getDuration();
@@ -388,10 +428,15 @@ public class JobService {
             for (List<Integer> task : FCFSList) {
                 if (Objects.equals(task.get(0), jobId)) {
                     jobTaskList.add(task);
+                    break;
                 }
             }
             fcfsOutput.add(jobTaskList);
         }
+        Long fcfsImplementationEndTime = System.nanoTime();
+        Long fcfsImplementationTime = fcfsImplementationEndTime - fcfsImplementationStartTime;
+
+        fcfsAlgorithmOutputDTO.setImplementationTime(fcfsImplementationTime);
         fcfsAlgorithmOutputDTO.setOutput(fcfsOutput);
         fcfsAlgorithmOutputDTO.setEndTime(endTime);
 
@@ -399,6 +444,7 @@ public class JobService {
     }
 
     private AlgorithmOutputDTO getMmrAlgorithmResult(List<List<Task>> allJobs, List<Integer> jobs) {
+        Long mmrImplementationStartTime = System.nanoTime();
         AlgorithmOutputDTO mmrAlgorithmOutputDTO = new AlgorithmOutputDTO();
         HashMap<String, Integer> map = new HashMap<String, Integer>();
         List<List<Integer>> MMRList = new ArrayList<>();
@@ -443,7 +489,7 @@ public class JobService {
             map.put(r2, startTime + rtr.get(5));
             rtr.set(2, startTime);
             rtr.set(3, startTime + rtr.get(5));
-            if (startTime + rtr.get(5) > mmrEndTime ){
+            if (startTime + rtr.get(5) > mmrEndTime) {
                 mmrEndTime = startTime + rtr.get(5);
             }
         }
@@ -454,11 +500,15 @@ public class JobService {
             for (List<Integer> task : MMRList) {
                 if (Objects.equals(task.get(0), jobId)) {
                     jobTaskList.add(task);
+                    break;
                 }
             }
             mmrOutput.add(jobTaskList);
         }
+        Long mmrImplementationEndTime = System.nanoTime();
+        Long mmrImplementationTime = mmrImplementationEndTime - mmrImplementationStartTime;
 
+        mmrAlgorithmOutputDTO.setImplementationTime(mmrImplementationTime);
         mmrAlgorithmOutputDTO.setOutput(mmrOutput);
         mmrAlgorithmOutputDTO.setEndTime(mmrEndTime);
 
@@ -494,7 +544,7 @@ public class JobService {
         // Create and add disjunctive constraints.
         for (int worker : allWorkers) {
             List<IntervalVar> list = workerToIntervals.get(worker);
-            if (list == null){
+            if (list == null) {
                 continue;
             }
             model.addNoOverlap(list);
@@ -512,14 +562,23 @@ public class JobService {
         }
     }
 
-    private Map<Integer, List<AssignedTask>> createOneListOfAssignedTasksPerWorker(List<List<Task>> allJobs, CpSolver solver, Map<List<Integer>, TaskType> allTasks) {
+    private Map<Integer, List<AssignedTask>> createOneListOfAssignedTasksPerWorker(
+        List<List<Task>> allJobs,
+        CpSolver solver,
+        Map<List<Integer>, TaskType> allTasks
+    ) {
         Map<Integer, List<AssignedTask>> assignedJobs = new HashMap<>();
         for (int jobID = 0; jobID < allJobs.size(); ++jobID) {
             List<Task> job = allJobs.get(jobID);
             for (int taskID = 0; taskID < job.size(); ++taskID) {
                 Task task = job.get(taskID);
                 List<Integer> key = Arrays.asList(jobID, taskID);
-                AssignedTask assignedTask = new AssignedTask(task.getJob().getId().intValue(), taskID, (int) solver.value(allTasks.get(key).getStart()), task.getDuration());
+                AssignedTask assignedTask = new AssignedTask(
+                    task.getJob().getId().intValue(),
+                    taskID,
+                    (int) solver.value(allTasks.get(key).getStart()),
+                    task.getDuration()
+                );
                 assignedJobs.computeIfAbsent(task.getWorker().getId().intValue(), (Integer k) -> new ArrayList<>());
                 assignedJobs.get(task.getWorker().getId().intValue()).add(assignedTask);
             }
@@ -527,17 +586,21 @@ public class JobService {
         return assignedJobs;
     }
 
-    private AlgorithmOutputDTO createOutputMap(List<Integer> allWorkers, Map<Integer, List<AssignedTask>> assignedJobs, List<Integer> jobs) {
+    private AlgorithmOutputDTO createOutputMap(
+        List<Integer> allWorkers,
+        Map<Integer, List<AssignedTask>> assignedJobs,
+        List<Integer> jobs
+    ) {
         AlgorithmOutputDTO jspAlgorithmOutputDTO = new AlgorithmOutputDTO();
         List<List<List<Integer>>> outputMap = new ArrayList<>();
-        int jspEndTime = 0 ;
+        int jspEndTime = 0;
         int finalJspEndTime = 0;
         for (int worker : allWorkers) {
             List<List<Integer>> listArrayList = new ArrayList<>();
             Collections.sort(assignedJobs.get(worker), new SortTasks());
             for (AssignedTask assignedTask : assignedJobs.get(worker)) {
                 jspEndTime = assignedTask.getStart() + assignedTask.getDuration();
-                if (jspEndTime > finalJspEndTime){
+                if (jspEndTime > finalJspEndTime) {
                     finalJspEndTime = jspEndTime;
                 }
                 List<Integer> arrayList = new ArrayList<>();
@@ -551,9 +614,9 @@ public class JobService {
             outputMap.add(listArrayList);
         }
 
-      List<List<Integer>> result1 = new ArrayList<>();
-        for (List<List<Integer>> list : outputMap ){
-            for (List<Integer> task:list){
+        List<List<Integer>> result1 = new ArrayList<>();
+        for (List<List<Integer>> list : outputMap) {
+            for (List<Integer> task : list) {
                 result1.add(task);
             }
         }
@@ -574,7 +637,5 @@ public class JobService {
         jspAlgorithmOutputDTO.setEndTime(finalJspEndTime);
 
         return jspAlgorithmOutputDTO;
-
     }
-
 }
